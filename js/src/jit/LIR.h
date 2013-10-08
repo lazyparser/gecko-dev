@@ -645,6 +645,9 @@ class LInstruction
     virtual bool isCall() const {
         return false;
     }
+    virtual bool isJSCall() const {
+        return false;
+    }
     uint32_t id() const {
         return id_;
     }
@@ -741,6 +744,9 @@ class LBlock : public TempObject
         entryMoveGroup_(nullptr),
         exitMoveGroup_(nullptr)
     { }
+
+  public:
+    js::Vector<uint32_t, 0, SystemAllocPolicy> pushedArguments;
 
   public:
     static LBlock *New(MBasicBlock *from) {

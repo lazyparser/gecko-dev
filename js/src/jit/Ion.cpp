@@ -1452,6 +1452,11 @@ GenerateLIR(MIRGenerator *mir)
     IonSpewPass("Unsplit Critical Edges");
     AssertBasicGraphCoherency(graph);
 
+    if (!PropagatePushedArguments(lir))
+        return NULL;
+    IonSpewPass("Propagate Pushed Arguments");
+    AssertBasicGraphCoherency(graph);
+
     return lir;
 }
 

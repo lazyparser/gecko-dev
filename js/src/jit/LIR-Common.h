@@ -1039,6 +1039,9 @@ class LJSCallInstructionHelper : public LCallInstructionHelper<Defs, Operands, T
     uint32_t numActualArgs() const {
         return mir()->numActualArgs();
     }
+    bool isJSCall() const {
+        return true;
+    }
 
     typedef LJSCallInstructionHelper<Defs, Operands, Temps> JSCallHelper;
 };

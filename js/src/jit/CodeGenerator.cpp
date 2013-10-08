@@ -2810,6 +2810,16 @@ CodeGenerator::generateBody()
         perfSpewer->startBasicBlock(current->mir(), masm);
 #endif
 
+        // QUESTION: Should we pop out these fake slots
+        // when we leave the LBlock?
+        size_t numArgumentsOrig = pushedArgumentSlots_.length();
+        IonSpew(IonSpew_BranchProfiles,"codegen pushArguments: %u -> %u",
+                numArgumentsOrig, current->pushedArguments.length());
+        for (size_t i = numArgumentsOrig; i < current->pushedArguments.length(); i++) {
+            if (pushedArgumentSlots_.append(current->pushedArguments[i]))
+                return false;
+        }
+
         for (; iter != current->end(); iter++) {
             IonSpewStart(IonSpew_Codegen, "instruction %s", iter->opName());
 #ifdef DEBUG

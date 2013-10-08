@@ -2060,6 +2060,35 @@ jit::UnsplitEdges(LIRGraph *lir)
 }
 
 bool
+jit::PropagatePushedArguments(LIRGraph *lir)
+{
+    js::Vector<uint32_t, 0, SystemAllocPolicy> pushedArguments;
+    for (size_t i = 0; i < lir->numBlocks(); i++) {
+        LBlock *block = lir->getBlock(i);
+        block->pushedArguments.appendAll(pushedArguments);
+        size_t numPoped = 0;
+        for (LInstructionIterator iter = block->begin(); iter != block->end(); iter++) {
+            if (iter->isStackArgT() && !pushedArguments.append(iter->toStackArgT()->argslot()))
+                return false;
+
+            if (iter->isStackArgV() && !pushedArguments.append(iter->toStackArgV()->argslot()))
+                return false;
+
+            if (iter->isJSCall())
+                numPoped = iter->mirRaw()->toCall()->numStackArgs();
+
+            while (numPoped) {
+                JS_ASSERT(pushedArguments.length());
+                pushedArguments.popBack();
+                --numPoped;
+            }
+        }
+    }
+    JS_ASSERT(pushedArguments.length() == 0);
+    return true;
+}
+
+bool
 LinearSum::multiply(int32_t scale)
 {
     for (size_t i = 0; i < terms_.length(); i++) {

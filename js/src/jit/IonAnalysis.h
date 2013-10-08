@@ -65,6 +65,9 @@ EliminateRedundantChecks(MIRGraph &graph);
 bool
 UnsplitEdges(LIRGraph *lir);
 
+bool
+PropagatePushedArguments(LIRGraph *lir);
+
 class MDefinition;
 
 // Simple linear sum of the form 'n' or 'x + n'.
