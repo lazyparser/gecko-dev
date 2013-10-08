@@ -1605,6 +1605,11 @@ IonCompile(JSContext *cx, JSScript *script,
                         script);
 #endif
 
+#ifdef DEBUG
+    if (js_IonOptions.baselineBranchProfiling && script->hasBaselineScript())
+        BaselineScript::DumpBlockCounters(script->baselineScript());
+#endif
+
     TrackPropertiesForSingletonScopes(cx, script, baselineFrame);
 
     LifoAlloc *alloc = cx->new_<LifoAlloc>(BUILDER_LIFO_ALLOC_PRIMARY_CHUNK_SIZE);
