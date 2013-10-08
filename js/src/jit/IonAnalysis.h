@@ -21,6 +21,9 @@ class MIRGraph;
 bool
 SplitCriticalEdges(MIRGraph &graph);
 
+bool
+AttachBranchProfiles(MIRGenerator *mir, MIRGraph &graph);
+
 enum Observability {
     ConservativeObservability,
     AggressiveObservability

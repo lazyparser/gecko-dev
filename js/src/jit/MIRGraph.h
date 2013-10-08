@@ -485,6 +485,21 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
         return trackedPc_;
     }
 
+    // SplitCriticalEdges() and function inlining may introduce new MBasicBlocks,
+    // which has no profile available.
+    bool isBlockUseCountAvailable() {
+        return blockUseCountAvailable_;
+    }
+
+    void setBlockUseCount(const uint32_t useCount) {
+        blockUseCount_ = useCount;
+        blockUseCountAvailable_ = true;
+    }
+
+    uint32_t getBlockUseCount() {
+        return blockUseCount_;
+    }
+
   private:
     MIRGraph &graph_;
     CompileInfo &info_; // Each block originates from a particular script.
@@ -505,6 +520,8 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock>
     uint32_t positionInPhiSuccessor_;
     Kind kind_;
     uint32_t loopDepth_;
+    uint32_t blockUseCount_;
+    bool blockUseCountAvailable_;
 
     // Utility mark for traversal algorithms.
     bool mark_;

@@ -5480,6 +5480,15 @@ ProcessArgs(JSContext *cx, JSObject *obj_, OptionParser *op)
     if (op->getBoolOption("baseline-eager"))
         jit::js_IonOptions.baselineUsesBeforeCompile = 0;
 
+    if (const char *str = op->getStringOption("branch-profiling")) {
+        if (strcmp(str, "off") == 0)
+            jit::js_IonOptions.baselineBranchProfiling = false;
+        else if (strcmp(str, "on") == 0)
+            jit::js_IonOptions.baselineBranchProfiling = true;
+        else
+            return OptionFailure("branch-profiling", str);
+    }
+
     if (const char *str = op->getStringOption("ion-regalloc")) {
         if (strcmp(str, "lsra") == 0)
             jit::js_IonOptions.registerAllocator = jit::RegisterAllocator_LSRA;
@@ -5767,6 +5776,8 @@ main(int argc, char **argv, char **envp)
                                "  lsra: Linear Scan register allocation (default)\n"
                                "  backtracking: Priority based backtracking register allocation\n"
                                "  stupid: Simple block local register allocation")
+        || !op.addStringOption('\0', "branch-profiling", "on/off",
+                               "Profile baseline generated codes (default: off, on to enable)")
         || !op.addBoolOption('\0', "ion-eager", "Always ion-compile methods (implies --baseline-eager)")
         || !op.addBoolOption('\0', "ion-compile-try-catch", "Ion-compile try-catch statements")
 #ifdef JS_THREADSAFE

@@ -266,6 +266,8 @@ jit::CheckLogging()
             "  range      Range Analysis\n"
             "  logs       C1 and JSON visualization logging\n"
             "  trace      Generate calls to js::jit::Trace() for effectful instructions\n"
+            "  branchprofiles\n"
+            "             Dump branch profiling data\n"
             "  all        Everything\n"
             "\n"
             "  bl-aborts  Baseline compiler abort messages\n"
@@ -319,6 +321,8 @@ jit::CheckLogging()
         EnableIonDebugLogging();
     if (ContainsFlag(env, "trace"))
         EnableChannel(IonSpew_Trace);
+    if (ContainsFlag(env, "branchprofiles"))
+        EnableChannel(IonSpew_BranchProfiles);
     if (ContainsFlag(env, "all"))
         LoggingBits = uint32_t(-1);
 

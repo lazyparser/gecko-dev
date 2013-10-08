@@ -1175,6 +1175,16 @@ OptimizeMIR(MIRGenerator *mir)
         return false;
     // No spew: graph not changed.
 
+    if (js_IonOptions.baselineBranchProfiling && !mir->compilingAsmJS()) {
+        if (!AttachBranchProfiles(mir, graph))
+            return false;
+        IonSpewPass("Attach Branch Profiles");
+        AssertGraphCoherency(graph);
+
+        if (mir->shouldCancel("Attach Branch Profiles"))
+            return false;
+    }
+
     if (mir->shouldCancel("Dominator Tree"))
         return false;
 
@@ -1658,6 +1668,7 @@ IonCompile(JSContext *cx, JSScript *script,
         IonSpew(IonSpew_Abort, "Builder failed to build.");
         return builder->abortReason();
     }
+    builder->clearForBackEnd();
 
     // If possible, compile the script off thread.
     if (OffThreadCompilationAvailable(cx)) {
@@ -2549,6 +2560,12 @@ jit::ForbidCompilation(JSContext *cx, JSScript *script, ExecutionMode mode)
             if (!Invalidate(cx, script, mode, false))
                 return;
         }
+
+        // NOTE: Scripts in bug757428.js entered ForbidCompilation() more than once
+        // with --baseline-eager option, which crashed toggleBlockCounters().
+        // To void this we test the state of block counters before we toggle jumps.
+        if (script->hasBaselineScript() && script->baselineScript()->isBranchProfilingEnabled())
+            script->baselineScript()->disableBranchProfiling();
 
         script->setIonScript(ION_DISABLED_SCRIPT);
         return;

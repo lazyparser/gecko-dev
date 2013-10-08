@@ -58,6 +58,8 @@ namespace jit {
     _(Trace)                                \
     /* Debug info about the I$ */           \
     _(CacheFlush)                           \
+    /* Branch Profiling */                  \
+    _(BranchProfiles)                       \
                                             \
     /* BASELINE COMPILER SPEW */            \
                                             \

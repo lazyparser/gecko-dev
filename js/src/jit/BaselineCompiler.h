@@ -215,6 +215,8 @@ class BaselineCompiler : public BaselineCompilerSpecific
         return emitIC(stub, false);
     }
 
+    bool emitBlockCounter(jsbytecode *pc);
+
     bool emitStackCheck(bool earlyCheck=false);
     bool emitInterruptCheck();
     bool emitUseCountIncrement();

@@ -203,6 +203,11 @@ struct IonOptions
     // Default: 1
     uint32_t usesBeforeCompilePar;
 
+    // Whether baseline scripts are instrumented.
+    //
+    // Default: false
+    bool baselineBranchProfiling;
+   
     void setEagerCompilation() {
         eagerCompilation = true;
         usesBeforeCompile = 0;
@@ -241,7 +246,8 @@ struct IonOptions
         inlineMaxTotalBytecodeLength(1000),
         inlineUseCountRatio(128),
         eagerCompilation(false),
-        usesBeforeCompilePar(1)
+        usesBeforeCompilePar(1),
+        baselineBranchProfiling(true)
     {
     }
 

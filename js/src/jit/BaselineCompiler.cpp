@@ -179,7 +179,8 @@ BaselineCompiler::compile()
                                                          icEntries_.length(),
                                                          pcMappingIndexEntries.length(),
                                                          pcEntries.length(),
-                                                         bytecodeTypeMapEntries);
+                                                         bytecodeTypeMapEntries,
+                                                         blockCounterEntries_.length());
     if (!baselineScript)
         return Method_Error;
 
@@ -220,6 +221,25 @@ BaselineCompiler::compile()
                                            ImmPtr((void*)-1));
     }
 
+    IonSpew(IonSpew_BranchProfiles, "%d counters emitted for script %s:%d (%p)",
+            blockCounterEntries_.length(), script->filename(),
+            script->lineno, script->baselineScript());
+
+    if (blockCounterEntries_.length())
+        baselineScript->copyBlockCounterEntries(&blockCounterEntries_[0]);
+
+    // Patch block counters
+    for (size_t i = 0; i < blockCounterLabels_.length(); i++) {
+        CodeOffsetLabel label = blockCounterLabels_[i].label;
+        label.fixup(&masm);
+        size_t bcEntry = blockCounterLabels_[i].bcEntry;
+        BlockCounterEntry *bcEntryAddr = &baselineScript->blockCounterEntry(bcEntry);
+        Assembler::patchDataWithValueCheck(CodeLocationLabel(code, label),
+                                           ImmPtr(bcEntryAddr),
+                                           ImmPtr((void*)-1));
+        bcEntryAddr->toggleOffset.fixup(&masm);
+    }
+
     if (modifiesArguments_)
         baselineScript->setModifiesArguments();
 
@@ -250,6 +270,9 @@ BaselineCompiler::compile()
         // searches for the sought entry when queries are in linear order.
         bytecodeMap[script->nTypeSets] = 0;
     }
+
+    if (js_IonOptions.baselineBranchProfiling)
+        baselineScript->enableBranchProfiling();
 
     return Method_Compiled;
 }
@@ -439,6 +462,36 @@ BaselineCompiler::emitIC(ICStub *stub, bool isForOp)
     EmitCallIC(&patchOffset, masm);
     entry->setReturnOffset(masm.currentOffset());
     if (!addICLoadLabel(patchOffset))
+        return false;
+
+    return true;
+}
+
+bool
+BaselineCompiler::emitBlockCounter(jsbytecode *pc)
+{
+    if (!ionCompileable_ && !ionOSRCompileable_)
+        return true;
+
+    IonSpew(IonSpew_BranchProfiles, "Emit a counter for op @ %d: %s",
+            int(pc - script->code), js_CodeName[JSOp(*pc)]);
+
+    BlockCounterEntry *entry = allocateBlockCounterEntry(pc - script->code);
+    if(!entry)
+        return false;
+
+    Label skipCount;
+    CodeOffsetLabel toggleOffset = masm.toggledJump(&skipCount);
+    entry->toggleOffset = toggleOffset;
+
+    Register addressReg = R1.scratchReg();
+    CodeOffsetLabel counterOffset = masm.movWithPatch(ImmWord(-1), addressReg);
+    Address counterAddr(addressReg, BlockCounterEntry::offsetOfCounter());
+    masm.add32(Imm32(1), counterAddr);
+
+    masm.bind(&skipCount);
+
+    if(!addBlockCounterLabel(counterOffset))
         return false;
 
     return true;
@@ -791,6 +844,12 @@ BaselineCompiler::emitBody()
         // Emit traps for breakpoints and step mode.
         if (debugMode_ && !emitDebugTrap())
             return Method_Error;
+
+        if (js_IonOptions.baselineBranchProfiling) {
+            // Instrument all jump targets and the first opcode.
+            if ((info->jumpTarget || pc == script->code) && !emitBlockCounter(pc))
+                return Method_Error;
+        }
 
         switch (op) {
           default:

@@ -95,6 +95,20 @@ struct PCMappingIndexEntry
     uint32_t bufferOffset;
 };
 
+struct BlockCounterEntry
+{
+    uint32_t counter;
+    size_t pcOffset;
+    CodeOffsetLabel toggleOffset;
+    BlockCounterEntry(const size_t pcoffset)
+      : counter(0),
+        pcOffset(pcoffset)
+    { }
+    static size_t offsetOfCounter() {
+        return offsetof(BlockCounterEntry, counter);
+    }
+};
+
 struct BaselineScript
 {
   public:
@@ -119,6 +133,8 @@ struct BaselineScript
     mozilla::DebugOnly<bool> spsOn_;
 #endif
     uint32_t spsPushToggleOffset_;
+
+    bool branchProfilingEnabled_;
 
   public:
     enum Flag {
@@ -150,6 +166,9 @@ struct BaselineScript
     uint32_t pcMappingOffset_;
     uint32_t pcMappingSize_;
 
+    uint32_t blockCounterOffset_;
+    uint32_t blockCounterEntries_;
+
     // List mapping indexes of bytecode type sets to the offset of the opcode
     // they correspond to, for use by TypeScript::BytecodeTypes.
     uint32_t bytecodeTypeMapOffset_;
@@ -161,8 +180,10 @@ struct BaselineScript
     static BaselineScript *New(JSContext *cx, uint32_t prologueOffset,
                                uint32_t spsPushToggleOffset, size_t icEntries,
                                size_t pcMappingIndexEntries, size_t pcMappingSize,
-                               size_t bytecodeTypeMapEntries);
+                               size_t bytecodeTypeMapEntries,
+                               size_t blockCounters);
     static void Trace(JSTracer *trc, BaselineScript *script);
+    static void DumpBlockCounters(BaselineScript *script);
     static void Destroy(FreeOp *fop, BaselineScript *script);
 
     void purgeOptimizedStubs(Zone *zone);
@@ -221,6 +242,10 @@ struct BaselineScript
         return &fallbackStubSpace_;
     }
 
+    BlockCounterEntry *blockCounterEntryList() {
+        return (BlockCounterEntry *)(reinterpret_cast<uint8_t *>(this) + blockCounterOffset_);
+    }
+
     IonCode *method() const {
         return method_;
     }
@@ -260,8 +285,15 @@ struct BaselineScript
     PCMappingIndexEntry &pcMappingIndexEntry(size_t index);
     CompactBufferReader pcMappingReader(size_t indexEntry);
 
+    BlockCounterEntry &blockCounterEntry(size_t index);
+    void copyBlockCounterEntries(BlockCounterEntry *entries);
+
     size_t numPCMappingIndexEntries() const {
         return pcMappingIndexEntries_;
+    }
+ 
+    size_t numBlockCounters() const {
+        return blockCounterEntries_;
     }
 
     void copyPCMappingIndexEntries(const PCMappingIndexEntry *entries);
@@ -290,6 +322,24 @@ struct BaselineScript
     uint32_t *bytecodeTypeMap() {
         JS_ASSERT(bytecodeTypeMapOffset_);
         return reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(this) + bytecodeTypeMapOffset_);
+    }
+
+    void toggleBlockCounters(bool enable);
+
+    bool isBranchProfilingEnabled() {
+        return branchProfilingEnabled_;
+    }
+
+    void enableBranchProfiling() {
+        JS_ASSERT(!branchProfilingEnabled_);
+        branchProfilingEnabled_ = true;
+        toggleBlockCounters(branchProfilingEnabled_);
+    }
+
+    void disableBranchProfiling() {
+        JS_ASSERT(branchProfilingEnabled_);
+        branchProfilingEnabled_ = false;
+        toggleBlockCounters(branchProfilingEnabled_);
     }
 };
 

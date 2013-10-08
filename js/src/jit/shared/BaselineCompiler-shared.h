@@ -31,6 +31,7 @@ class BaselineCompilerShared
 
     FallbackICStubSpace stubSpace_;
     js::Vector<ICEntry, 16, SystemAllocPolicy> icEntries_;
+    js::Vector<BlockCounterEntry, 16, SystemAllocPolicy> blockCounterEntries_;
 
     // Stores the native code offset for a bytecode pc.
     struct PCMappingEntry
@@ -63,6 +64,12 @@ class BaselineCompilerShared
     };
     js::Vector<ICLoadLabel, 16, SystemAllocPolicy> icLoadLabels_;
 
+    struct BlockCounterLabel {
+        size_t bcEntry;
+        CodeOffsetLabel label;
+    };
+    js::Vector<BlockCounterLabel, 16, SystemAllocPolicy> blockCounterLabels_;
+
     uint32_t pushedBeforeCall_;
     mozilla::DebugOnly<bool> inCall_;
 
@@ -92,6 +99,20 @@ class BaselineCompilerShared
         loadLabel.label = label;
         loadLabel.icEntry = icEntries_.length() - 1;
         return icLoadLabels_.append(loadLabel);
+    }
+
+    BlockCounterEntry *allocateBlockCounterEntry(const size_t pcoffset) {
+        if(!blockCounterEntries_.append(BlockCounterEntry(pcoffset)))
+            return NULL;
+        return &blockCounterEntries_.back();
+    }
+
+    bool addBlockCounterLabel(CodeOffsetLabel label) {
+        JS_ASSERT(!blockCounterEntries_.empty());
+        BlockCounterLabel bcLabel;
+        bcLabel.label = label;
+        bcLabel.bcEntry = blockCounterEntries_.length() - 1;
+        return blockCounterLabels_.append(bcLabel);
     }
 
     JSFunction *function() const {

@@ -297,6 +297,9 @@ JSONSpewer::spewMIR(MIRGraph *mir)
 
         integerProperty("number", block->id());
 
+        if(block->isBlockUseCountAvailable())
+            integerProperty("blockUseCount", block->getBlockUseCount());
+
         beginListProperty("attributes");
         if (block->isLoopBackedge())
             stringValue("backedge");
@@ -372,6 +375,9 @@ JSONSpewer::spewLIR(MIRGraph *mir)
         beginObject();
         integerProperty("number", i->id());
 
+        if (i->isBlockUseCountAvailable())
+            integerProperty("blockUseCount", i->getBlockUseCount());
+
         beginListProperty("instructions");
         for (size_t p = 0; p < block->numPhis(); p++)
             spewLIns(block->getPhi(p));
@@ -398,9 +404,17 @@ JSONSpewer::spewIntervals(LinearScanAllocator *regalloc)
     for (size_t bno = 0; bno < regalloc->graph.numBlocks(); bno++) {
         beginObject();
         integerProperty("number", bno);
-        beginListProperty("vregs");
 
         LBlock *lir = regalloc->graph.getBlock(bno);
+
+        // Currently we don't propagate blockUseCounts to LBlock,
+        // so we use the counter of the corresponding MBasicBlock instead.
+        MBasicBlock *mir = lir->mir();
+        if (mir && mir->isBlockUseCountAvailable())
+            integerProperty("blockUseCount", mir->getBlockUseCount());
+
+        beginListProperty("vregs");
+
         for (LInstructionIterator ins = lir->begin(); ins != lir->end(); ins++) {
             for (size_t k = 0; k < ins->numDefs(); k++) {
                 uint32_t id = ins->getDef(k)->virtualRegister();
