@@ -1012,7 +1012,7 @@ CodeGenerator::visitReturn(LReturn *lir)
     JS_ASSERT(ToRegister(result) == JSReturnReg);
 #endif
     // Don't emit a jump to the return label if this is the last block.
-    if (current->mir() != *gen->graph().poBegin())
+    if (current != graph.getBlock(graph.numBlocks() - 1))
         masm.jump(&returnLabel_);
     return true;
 }

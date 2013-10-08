@@ -285,6 +285,128 @@ jit::AttachBranchProfiles(MIRGenerator *mir, MIRGraph &graph)
     return true;
 }
 
+bool
+jit::MoveUnlikelyBlocks(MIRGenerator *mir, LIRGraph *lir)
+{
+    // Forbid AsmJS optimization as OdinMonkey is an ahead of time compiler
+    // and we do not have any profiled information.
+    JS_ASSERT(!mir->compilingAsmJS());
+
+    MIRGraph &mgraph = lir->mir();
+    mgraph.unmarkBlocks();
+    Vector<MBasicBlock *, 8, SystemAllocPolicy> worklist;
+
+    MBasicBlock *entryBlock = mgraph.entryBlock();
+    JS_ASSERT(entryBlock);
+    entryBlock->mark();
+    if (!worklist.append(entryBlock))
+        return false;
+
+    MBasicBlock *osrBlock = mgraph.osrBlock();
+    if (osrBlock)
+        if (!worklist.append(osrBlock))
+            return false;
+
+    const uint32_t useCountThreshold = js_IonOptions.unlikelyBlockUseCountThreshold;
+
+    while (worklist.length()) {
+        MBasicBlock *block = worklist.popCopy();
+        JS_ASSERT(block);
+        size_t numSucc = block->numSuccessors();
+        JSScript *jsscript = block->info().script();
+
+        if (numSucc == 0)
+            continue;
+
+        // If the block has only one successor, then the successor will definitely be executed.
+        if (numSucc == 1) {
+            MBasicBlock *succ = block->getSuccessor(0);
+            if (!succ->isMarked()) {
+                succ->mark();
+                if (!worklist.append(succ))
+                    return false;
+            }
+            continue;
+        }
+        uint32_t sum = 0;
+        for (size_t i = 0; i < numSucc; i++) {
+            MBasicBlock *succ = block->getSuccessor(i);
+            if (succ->isBlockUseCountAvailable())
+                sum += succ->getBlockUseCount();
+        }
+
+        // If the iterations we have seen is less than the default threshold, e.g.
+        // less than 300 iterations, we do not have enough samples to make any wise choice.
+        // In this case we just assume that all successors are likely.
+        //
+        // Currently the successors of the basic block which has 'TableSwitch' or
+        // 'CondSwitch' as its last instruction do not have correct profiles,
+        // so we assume that all successors are likely.
+        if (sum < useCountThreshold || block->lastIns()->isTableSwitch()) {
+            for (size_t i = 0; i < numSucc; i++) {
+                MBasicBlock *succ = block->getSuccessor(i);
+                if (!succ->isMarked()) {
+                    succ->mark();
+                    if (!worklist.append(succ))
+                        return false;
+                }
+            }
+            continue;
+        }
+
+        const double branchLikelyRatio = js_IonOptions.unlikelyBlockUseCountRatio * sum / numSucc;
+        for (size_t i = 0; i < numSucc; i++) {
+            MBasicBlock *succ = block->getSuccessor(i);
+            if (succ->isMarked())
+                continue;
+
+            if (!succ->isBlockUseCountAvailable() ||
+                    block->loopDepth() > succ->loopDepth() ||
+                    block->isLoopHeader() ||
+                    succ->getBlockUseCount() > branchLikelyRatio) {
+                succ->mark();
+                if (!worklist.append(succ))
+                    return false;
+                continue;
+            }
+
+            JS_ASSERT_IF(succ->isMarked() && succ->immediateDominator(), succ->immediateDominator()->isMarked());
+        }
+
+#ifdef DEBUG
+        // If the block is marked, then at least on successor should be marked.
+        size_t numMarked = 0;
+        for (size_t j = 0; j < numSucc; j++) {
+            if (block->getSuccessor(j)->isMarked())
+                numMarked++;
+        }
+        JS_ASSERT(numMarked);
+#endif
+    }
+
+    LBlockVector likelyBlocks;
+    LBlockVector unlikelyBlocks;
+
+    for (MBasicBlockIterator iter(mgraph.begin()); iter != mgraph.end(); iter++) {
+        if (iter->isMarked()) {
+            if (!likelyBlocks.append(iter->lir()))
+                return false;
+        } else {
+            if (!unlikelyBlocks.append(iter->lir()))
+                return false;
+        }
+    }
+    IonSpew(IonSpew_BranchProfiles,
+            "MoveUnlikelyBlocks likely = %u, unlikely = %u @ %s:%d",
+            likelyBlocks.length(), unlikelyBlocks.length(),
+            mir->info().script()->filename(), mir->info().lineno());
+
+
+    lir->replaceBlocksByLikelyhood(likelyBlocks, unlikelyBlocks);
+
+    return true;
+}
+
 // Operands to a resume point which are dead at the point of the resume can be
 // replaced with undefined values. This analysis supports limited detection of
 // dead operands, pruning those which are defined in the resume point's basic

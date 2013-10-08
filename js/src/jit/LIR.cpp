@@ -51,6 +51,44 @@ LIRGraph::removeBlock(size_t i)
     blocks_.erase(blocks_.begin() + i);
 }
 
+void
+LIRGraph::replaceBlocksByLikelyhood(LBlockVector &likelyBlocks, LBlockVector &unlikelyBlocks)
+{
+    mozilla::DebugOnly<size_t> num = numBlocks();
+    JS_ASSERT(num == likelyBlocks.length() + unlikelyBlocks.length());
+    JS_ASSERT(getBlock(0) == likelyBlocks[0]);
+
+    // Just return if there are no blocks should be moved.
+    if (!unlikelyBlocks.length())
+        return;
+
+    blocks_.clear();
+
+    mozilla::DebugOnly<bool> success;
+    success = blocks_.appendAll(likelyBlocks);
+    JS_ASSERT(success);
+    success = blocks_.appendAll(unlikelyBlocks);
+    JS_ASSERT(success);
+
+    JS_ASSERT(num == numBlocks());
+
+    renumberMBlocks();
+}
+
+bool
+LIRGraph::renumberMBlocks()
+{
+    IonSpew(IonSpew_BranchProfiles, "Entering LIRGraph::renumberMBlocks()");
+    for (size_t i = 0; i < numBlocks(); i++) {
+        MBasicBlock *block = getBlock(i)->mir();
+        JS_ASSERT(block);
+        IonSpew(IonSpew_BranchProfiles, "LBlock->MBlock->id: %d -> %d", block->id(), i);
+        block->setId(i);
+    }
+
+    return true;
+}
+
 Label *
 LBlock::label()
 {

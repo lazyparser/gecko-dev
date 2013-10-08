@@ -208,10 +208,30 @@ struct IonOptions
     // Default: false
     bool baselineBranchProfiling;
 
+    // Toggles whether LIR Blocks are reordered based on branch profiles.
+    //
+    // Default: true if baselineBranchProfiling is true.
+    bool moveUnlikelyBlocks;
+
+    // How many iterations should be profiled before we move LBlocks.
+    //
+    // Default: 300
+    uint32_t unlikelyBlockUseCountThreshold;
+
+    // A branch is marked 'unlikely' if its execution probability is lower than this ratio.
+    //
+    // Default: 0.05
+    double unlikelyBlockUseCountRatio;
+
     void setEagerCompilation() {
         eagerCompilation = true;
         usesBeforeCompile = 0;
         baselineUsesBeforeCompile = 0;
+
+        // Disable branch profiling and related optimizations.
+        // This is for testing only.
+        baselineBranchProfiling = false;
+        moveUnlikelyBlocks = false;
     }
 
     IonOptions()
@@ -247,7 +267,11 @@ struct IonOptions
         inlineUseCountRatio(128),
         eagerCompilation(false),
         usesBeforeCompilePar(1),
-        baselineBranchProfiling(true)
+        // Enabled by default for testing purpose.
+        baselineBranchProfiling(true),
+        moveUnlikelyBlocks(true),
+        unlikelyBlockUseCountThreshold(300),
+        unlikelyBlockUseCountRatio(0.05)
     {
     }
 

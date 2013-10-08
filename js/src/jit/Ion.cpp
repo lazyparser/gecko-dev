@@ -1473,6 +1473,14 @@ GenerateCode(MIRGenerator *mir, LIRGraph *lir, MacroAssembler *maybeMasm)
             return nullptr;
         }
     } else {
+        if (js_IonOptions.moveUnlikelyBlocks) {
+            if (!MoveUnlikelyBlocks(mir, lir)) {
+                js_delete(codegen);
+                return NULL;
+            }
+            IonSpewPass("Move Unlikely Blocks");
+        }
+
         if (!codegen->generate()) {
             js_delete(codegen);
             return nullptr;

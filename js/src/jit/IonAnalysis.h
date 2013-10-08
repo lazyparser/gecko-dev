@@ -68,6 +68,9 @@ UnsplitEdges(LIRGraph *lir);
 bool
 PropagatePushedArguments(LIRGraph *lir);
 
+bool
+MoveUnlikelyBlocks(MIRGenerator *mir, LIRGraph *lir);
+
 class MDefinition;
 
 // Simple linear sum of the form 'n' or 'x + n'.

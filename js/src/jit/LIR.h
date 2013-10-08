@@ -728,6 +728,7 @@ class LInstructionVisitor
 
 typedef InlineList<LInstruction>::iterator LInstructionIterator;
 typedef InlineList<LInstruction>::reverse_iterator LInstructionReverseIterator;
+typedef Vector<LBlock *, 4, SystemAllocPolicy> LBlockVector;
 
 class LPhi;
 class LMoveGroup;
@@ -1443,6 +1444,10 @@ class LIRGraph
         return safepoints_[i];
     }
     void removeBlock(size_t i);
+
+    void replaceBlocksByLikelyhood(LBlockVector &likelyBlocks, LBlockVector &unlikelyBlocks);
+
+    bool renumberMBlocks();
 };
 
 LAllocation::LAllocation(const AnyRegister &reg)
