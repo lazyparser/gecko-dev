@@ -291,7 +291,7 @@ struct BaselineScript
     size_t numPCMappingIndexEntries() const {
         return pcMappingIndexEntries_;
     }
- 
+
     size_t numBlockCounters() const {
         return blockCounterEntries_;
     }

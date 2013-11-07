@@ -207,7 +207,7 @@ struct IonOptions
     //
     // Default: false
     bool baselineBranchProfiling;
-   
+
     void setEagerCompilation() {
         eagerCompilation = true;
         usesBeforeCompile = 0;
